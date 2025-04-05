@@ -1,0 +1,93 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:14
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: videodb
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    depends_on:
+      - postgres
+    ports:
+      - '8001:8000'
+    env_file:
+      - .env
+
+  video-upload-service:
+    build: ./video-upload-service
+    container_name: video-upload-service
+    depends_on:
+      - rabbitmq
+      - postgres
+    ports:
+      - '8002:8000'
+    env_file:
+      - .env
+    volumes:
+      - shared-data:/tmp/processed
+      - shared-uploads:/tmp/uploads
+
+  video-processing-service:
+    build: ./video-processing-service
+    container_name: video-processing-service
+    depends_on:
+      - rabbitmq
+      - postgres
+    ports:
+      - '8003:8000'
+    env_file:
+      - .env
+    volumes:
+      - shared-data:/tmp/processed
+      - shared-uploads:/tmp/uploads
+
+  status-service:
+    build: ./status-service
+    container_name: status-service
+    depends_on:
+      - postgres
+    ports:
+      - '8004:8000'
+    env_file:
+      - .env
+    volumes:
+      - shared-data:/tmp/processed
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    depends_on:
+      - rabbitmq
+    ports:
+      - '8005:8000'
+    env_file:
+      - .env
+
+
+
+volumes:
+  pgdata:
+  shared-data:
+  shared-uploads:

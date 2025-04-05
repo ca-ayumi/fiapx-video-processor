@@ -1,0 +1,4 @@
+opencv-python
+pika
+sqlalchemy
+psycopg2-binary
