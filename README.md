@@ -1,7 +1,8 @@
 # 🎬 FiapX Video Processor 
 
 ##  Arquitetura da Solução 
-![video_processor.drawio.png](../../../../Downloads/video_processor.drawio.png)
+![video_processor drawio](https://github.com/user-attachments/assets/768efcd6-ac83-4368-941c-d2fcdcab3ef1)
+
 
 ## 📌 Visão Geral
 Uma plataforma de processamento de vídeos que recebe arquivos, extrai os frames, gera um arquivo `.zip` com as imagens e disponibiliza para o usuário. O sistema foi reestruturado com foco em escalabilidade, segurança, resiliência e boas práticas de arquitetura.
