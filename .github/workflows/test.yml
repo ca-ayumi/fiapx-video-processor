@@ -1,0 +1,54 @@
+name: Run Tests and Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        ports: ['5432:5432']
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: videodb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.10
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r auth-service/requirements.txt
+          pip install pytest pytest-cov httpx
+
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          PYTHONPATH=auth-service pytest auth-service/tests --cov=auth-service/app --cov-report=xml
+
+      - name: Upload coverage to SonarCloud
+        uses: SonarSource/sonarcloud-github-action@master
+        with:
+          args: >
+            -Dsonar.projectKey=SEU_USUARIO_PROJETO
+            -Dsonar.organization=SEU_ORG
+            -Dsonar.python.coverage.reportPaths=auth-service/coverage.xml
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
