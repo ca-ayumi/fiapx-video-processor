@@ -13,34 +13,34 @@ Uma plataforma de processamento de vídeos que recebe arquivos, extrai os frames
 - Upload de vídeos via API
 - Extração de frames do vídeo
 - Geração automática de `.zip`
-- Processamento assíncrono e escalável
+- Processamento assíncrono e escalável com RabbitMQ
 - Registro e login com autenticação JWT
-- Armazenamento dos arquivos e status
-- Infraestrutura baseada em microsserviços
+- Armazenamento dos arquivos e status por usuário
+- Infraestrutura baseada em microsserviços com Docker Compose
 
 ---
 
 ## 🧱 Arquitetura Escolhida: Microsserviços com Mensageria
 
 ### ✨ Por que essa arquitetura?
-| Requisito | Como atendemos |
-|----------|----------------|
-| Processar vários vídeos ao mesmo tempo | Processamento paralelo via RabbitMQ |
-| Não perder requisições em picos | Mensageria garante buffer e retry |
-| Proteção por login/senha | Auth Service + JWT |
-| Listagem de status por usuário | (status-service - em progresso) |
-| Notificações em caso de erro | (notification-service - em progresso) |
-| Persistência de dados | PostgreSQL compartilhado |
-| CI/CD e testes | Planejados com GitHub Actions |
+| Requisito                        | Como atendemos                                    |
+|----------------------------------|----------------------------------------------------|
+| Processar vários vídeos ao mesmo tempo | Processamento paralelo via RabbitMQ         |
+| Não perder requisições em picos       | Mensageria garante buffer e retry             |
+| Proteção por login/senha              | Auth Service + JWT                             |
+| Listagem de status por usuário       | Status-service                                  |
+| Notificações em caso de erro         | Notification-service via fila                   |
+| Persistência de dados                | PostgreSQL compartilhado                        |
+| CI/CD e testes                       | Planejados com GitHub Actions                   |
 
 ### 📌 Componentes
 - `auth-service`: login e registro com JWT
-- `video-upload-service`: upload e envio para fila
-- `video-processing-service`: consome da fila, processa e salva .zip
-- `status-service`: exibe status do processamento (em desenvolvimento)
-- `notification-service`: notifica usuários por email (em desenvolvimento)
-- `RabbitMQ`: mensageria
-- `PostgreSQL`: persistência de dados
+- `video-upload-service`: upload e envio para fila `video_to_process`
+- `video-processing-service`: consome da fila, extrai frames, gera ZIP e atualiza status
+- `status-service`: exibe status e permite download dos arquivos processados
+- `notification-service`: envia notificações (email/logs)
+- `RabbitMQ`: mensageria com filas dedicadas
+- `PostgreSQL`: banco relacional para armazenar vídeos e status
 - `Docker Compose`: orquestração local
 
 ---
@@ -53,19 +53,19 @@ Uma plataforma de processamento de vídeos que recebe arquivos, extrai os frames
 
 ### 🛠️ Subir os serviços:
 ```bash
-git clone https://github.com/seu-usuario/video-processor-platform.git
-cd video-processor-platform
+git clone https://github.com/ca-ayumi/fiapx-video-processor.git
+cd fiapx-video-processor
 docker-compose up --build
 ```
 
 ### 📦 Serviços disponíveis:
-| Serviço | URL | Porta |
-|--------|-----|-------|
-| Auth Service | http://localhost:8001 | 8001 |
-| Upload Service | http://localhost:8002 | 8002 |
-| Processing Service | (fila, sem rota HTTP) | - |
-| RabbitMQ | http://localhost:15672 | 15672 (user: guest) |
-| PostgreSQL | localhost:5432 | - |
+| Serviço              | URL                        | Porta |
+|----------------------|-----------------------------|--------|
+| Auth Service         | http://localhost:8001       | 8001   |
+| Upload Service       | http://localhost:8002       | 8002   |
+| Status Service       | http://localhost:8004       | 8004   |
+| RabbitMQ Dashboard   | http://localhost:15672      | 15672  |
+| PostgreSQL           | localhost:5432              | 5432   |
 
 ---
 
@@ -87,57 +87,63 @@ curl -X POST http://localhost:8001/login \
 
 ### 📤 Upload de vídeo
 ```bash
-curl -X POST http://localhost:8002/upload \
-    -F "file=@video.mp4"
+curl -X POST "http://localhost:8002/upload?user_email=user@fiapx.com" \
+  -F "file=@exemplo_video.mp4"
+```
+
+### 📊 Verificar status
+```bash
+curl "http://localhost:8004/videos?user_email=user@fiapx.com"
+```
+
+### 📥 Fazer download
+```bash
+curl -O "http://localhost:8004/download/<nome_do_arquivo>.zip"
 ```
 
 ---
 
 ## 📁 Estrutura de Pastas
 ```
-video-processor-platform/
+fiapx-video-processor/
 ├── auth-service/
 ├── video-upload-service/
 ├── video-processing-service/
-├── status-service/ (em progresso)
-├── notification-service/ (em progresso)
-├── shared/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── processor.py
+│   │   ├── models.py
+│   │   └── database.py
+├── status-service/
+├── notification-service/
 ├── docker-compose.yml
 ├── .env
-├── README.md
-└── .github/workflows/ci.yml (em progresso)
+└── README.md
 ```
 
 ---
 
 ## 🧾 Requisitos Técnicos Atendidos
-- ✅ Processamento paralelo via fila
-- ✅ Resiliência a picos de requisição (RabbitMQ)
-- ✅ Login e autenticação com senha segura (JWT + Bcrypt)
-- ✅ Arquitetura escalável com Docker + microsserviços
+- ✅ Processamento paralelo com fila RabbitMQ
+- ✅ Resiliência a picos de requisição
+- ✅ Login e autenticação com JWT seguro
+- ✅ Arquitetura escalável com Docker
 - ✅ Persistência de dados com PostgreSQL
-- 🔄 Status por usuário (em progresso)
-- 🔄 Notificações (em progresso)
-- 🔄 Testes automatizados (planejado)
-- 🔄 CI/CD com GitHub Actions (planejado)
+- ✅ Status por usuário (pronto)
+- ✅ Notificações (logs por enquanto)
+- 🔄 CI/CD com GitHub Actions (em progresso)
 
 ---
 
 ## 📌 Entregáveis
 - [x] Documentação da arquitetura ✅
 - [x] Script de infraestrutura (Docker Compose) ✅
-- [ ] Link do GitHub do projeto
-- [ ] Vídeo de até 10 minutos apresentando a solução
+- [x] Repositório no GitHub ✅
+- [ ] Vídeo de até 10 minutos apresentando a solução 🎥
 
 ---
 
 ## 📚 Créditos
-Projeto acadêmico desenvolvido para a disciplina da FIAP X.
+Projeto acadêmico desenvolvido para o Hackaton da FIAP.
 
 ---
-
-Se quiser, contribua com testes, melhorias e novas features via pull request! 💡
-
----
-
-**Made with ❤️ for FIAP X**

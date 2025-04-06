@@ -2,8 +2,7 @@ import os
 import json
 import threading
 import pika
-from fastapi import FastAPI
-
+from fastapi import FastAPI, Query
 from .database import SessionLocal
 from .models import Video
 from .mailer import send_email_notification

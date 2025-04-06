@@ -4,6 +4,8 @@ import zipfile
 from datetime import datetime
 from .models import Video
 from .database import SessionLocal
+import pika
+import json
 
 def process_video(filename: str, user_email: str):
     print(f"\n[PROCESSAMENTO] Iniciando para: {filename}, usuário: {user_email}")
@@ -62,7 +64,6 @@ def process_video(filename: str, user_email: str):
         print(f"[ERRO] ZIP não criado em: {zip_path}")
         return
 
-    # Atualizar status no banco
     db = SessionLocal()
     try:
         video = db.query(Video).filter_by(filename=filename, user_email=user_email).first()
@@ -70,9 +71,33 @@ def process_video(filename: str, user_email: str):
             video.status = "done"
             db.commit()
             print(f"[DB OK] Status atualizado para 'done' para vídeo: {filename}")
+            publish_status_update(filename, "done", user_email)
         else:
             print(f"[DB ERRO] Vídeo não encontrado com filename={filename} e user_email={user_email}")
     except Exception as e:
         print(f"[DB EXCEPTION] {e}")
     finally:
         db.close()
+
+def publish_status_update(filename, status, user_email):
+    try:
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbitmq"))
+        channel = connection.channel()
+        channel.queue_declare(queue="video_status_updates", durable=True)
+
+        message = {
+            "filename": filename,
+            "status": status,
+            "user_email": user_email
+        }
+
+        channel.basic_publish(
+            exchange="",
+            routing_key="video_status_updates",
+            body=json.dumps(message),
+            properties=pika.BasicProperties(delivery_mode=2)
+        )
+        print(f"[RABBITMQ ✓] Mensagem enviada: {message}")
+        connection.close()
+    except Exception as e:
+        print(f"[RABBITMQ ✗] Falha ao enviar mensagem: {e}")

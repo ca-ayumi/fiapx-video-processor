@@ -8,6 +8,8 @@ SMTP_USERNAME = os.getenv("SMTP_USERNAME")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 def send_email_notification(to_email: str, filename: str):
+    print(f"[→] Tentando enviar e-mail para {to_email} sobre '{filename}'")
+
     msg = EmailMessage()
     msg["Subject"] = "Seu vídeo foi processado com sucesso!"
     msg["From"] = SMTP_USERNAME
