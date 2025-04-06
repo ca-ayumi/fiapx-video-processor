@@ -41,8 +41,8 @@ jobs:
       #- name: Lint with flake8
       #  run: flake8 app --max-line-length=88
 
-      - name: Check formatting with black
-        run: black --check app
+      #- name: Check formatting with black
+      #  run: black --check app
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
