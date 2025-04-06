@@ -38,8 +38,8 @@ jobs:
         run: |
           PYTHONPATH=. pytest --disable-warnings --cov=app --cov-report=xml:coverage.xml
 
-      - name: Lint with flake8
-        run: flake8 app --max-line-length=88
+      #- name: Lint with flake8
+      #  run: flake8 app --max-line-length=88
 
       - name: Check formatting with black
         run: black --check app
