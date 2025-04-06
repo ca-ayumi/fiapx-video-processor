@@ -45,10 +45,9 @@ jobs:
       #  run: black --check app
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v5.0.0
         with:
           projectBaseDir: .
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_PROJECT_KEY: ca-ayumi_${{ matrix.service }}
-          SONAR_ORGANIZATION: ca-ayumi
+
