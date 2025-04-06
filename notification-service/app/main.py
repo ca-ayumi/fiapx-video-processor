@@ -32,15 +32,49 @@ def callback(ch, method, properties, body):
     finally:
         db.close()
 
+def handle_success_message(body):
+    data = json.loads(body)
+    filename = data.get("filename")
+    to_email = data.get("user_email")
+    if filename and to_email:
+        send_email_notification(to_email, filename)
+
+def handle_error_message(body):
+    data = json.loads(body)
+    filename = data.get("filename")
+    to_email = data.get("user_email")
+    error = data.get("error", "Erro desconhecido")
+
+    if to_email and filename:
+        send_email_notification(
+            to_email,
+            filename,
+            error_message=error
+        )
+
 def start_consumer():
-    print("[*] Aguardando mensagens do RabbitMQ...")
+    print("[*] Notifier ouvindo filas de sucesso e erro...")
     connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
     channel = connection.channel()
-    channel.queue_declare(queue=QUEUE_NAME, durable=True)
-    channel.basic_consume(queue=QUEUE_NAME, on_message_callback=callback, auto_ack=True)
+
+    # Fila de sucesso
+    channel.queue_declare(queue="video_status_updates", durable=True)
+    channel.basic_consume(
+        queue="video_status_updates",
+        on_message_callback=lambda ch, method, properties, body: handle_success_message(body),
+        auto_ack=True
+    )
+
+    # Fila de erro
+    channel.queue_declare(queue="video_error_notifications", durable=True)
+    channel.basic_consume(
+        queue="video_error_notifications",
+        on_message_callback=lambda ch, method, properties, body: handle_error_message(body),
+        auto_ack=True
+    )
+
     channel.start_consuming()
 
 @app.on_event("startup")
 def startup_event():
-    thread = threading.Thread(target=start_consumer, daemon=True)
-    thread.start()
+    threading.Thread(target=start_consumer, daemon=True).start()

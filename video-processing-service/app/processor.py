@@ -6,6 +6,7 @@ from .models import Video
 from .database import SessionLocal
 import pika
 import json
+from .notifier import publish_error_notification
 
 def process_video(filename: str, user_email: str):
     print(f"\n[PROCESSAMENTO] Iniciando para: {filename}, usuário: {user_email}")
@@ -15,16 +16,21 @@ def process_video(filename: str, user_email: str):
     zip_path = os.path.join("/tmp/processed", filename.replace(".mp4", "") + ".zip")
 
     if not os.path.exists(input_path):
-        print(f"[ERRO] Arquivo de vídeo não encontrado em: {input_path}")
+        reason = f"Arquivo de vídeo não encontrado: {input_path}"
+        print(f"[ERRO] {reason}")
+        publish_error_notification(user_email, filename, reason)
         return
 
     print(f"[OK] Vídeo encontrado: {input_path}")
     os.makedirs(frames_dir, exist_ok=True)
+
     print(f"[OK] Diretório de frames criado: {frames_dir}")
 
     cap = cv2.VideoCapture(input_path)
+
     if not cap.isOpened():
         print(f"[ERRO] Não foi possível abrir o vídeo com OpenCV: {input_path}")
+        notify_error(filename, user_email, "Formato inválido ou vídeo corrompido.")
         return
 
     print("[OK] Vídeo aberto com sucesso.")
@@ -41,7 +47,9 @@ def process_video(filename: str, user_email: str):
         if success:
             print(f"[FRAME] Salvo: {frame_path}")
         else:
-            print(f"[ERRO] Falha ao salvar frame: {frame_path}")
+            reason = f"Falha ao salvar frame: {frame_path}"
+            print(f"[ERRO] {reason}")
+            publish_error_notification(user_email, filename, reason)
 
         frame_count += 1
 
@@ -57,11 +65,15 @@ def process_video(filename: str, user_email: str):
                     zipf.write(full_path, arcname)
         print(f"[ZIP OK] Arquivo gerado: {zip_path}")
     except Exception as e:
-        print(f"[ERRO] Ao criar zip: {e}")
+        reason = f"Erro ao criar o arquivo zip: {e}"
+        print(f"[ERRO] {reason}")
+        publish_error_notification(user_email, filename, reason)
         return
 
     if not os.path.exists(zip_path):
-        print(f"[ERRO] ZIP não criado em: {zip_path}")
+        reason = f"ZIP não criado em: {zip_path}"
+        print(f"[ERRO] {reason}")
+        publish_error_notification(user_email, filename, reason)
         return
 
     db = SessionLocal()
@@ -71,33 +83,37 @@ def process_video(filename: str, user_email: str):
             video.status = "done"
             db.commit()
             print(f"[DB OK] Status atualizado para 'done' para vídeo: {filename}")
-            publish_status_update(filename, "done", user_email)
         else:
-            print(f"[DB ERRO] Vídeo não encontrado com filename={filename} e user_email={user_email}")
+            reason = f"Vídeo não encontrado no banco com filename={filename} e user_email={user_email}"
+            print(f"[DB ERRO] {reason}")
+            publish_error_notification(user_email, filename, reason)
     except Exception as e:
-        print(f"[DB EXCEPTION] {e}")
+        reason = f"Exceção ao atualizar status no banco: {e}"
+        print(f"[DB EXCEPTION] {reason}")
+        publish_error_notification(user_email, filename, reason)
     finally:
         db.close()
 
-def publish_status_update(filename, status, user_email):
+def notify_error(filename: str, user_email: str, reason: str):
+    message = {
+        "filename": filename,
+        "user_email": user_email,
+        "error": reason
+    }
+
     try:
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbitmq"))
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=os.getenv("RABBITMQ_HOST", "rabbitmq"))
+        )
         channel = connection.channel()
-        channel.queue_declare(queue="video_status_updates", durable=True)
-
-        message = {
-            "filename": filename,
-            "status": status,
-            "user_email": user_email
-        }
-
+        channel.queue_declare(queue="video_error_notifications", durable=True)
         channel.basic_publish(
             exchange="",
-            routing_key="video_status_updates",
+            routing_key="video_error_notifications",
             body=json.dumps(message),
             properties=pika.BasicProperties(delivery_mode=2)
         )
-        print(f"[RABBITMQ ✓] Mensagem enviada: {message}")
+        print(f"[x] Notificação de erro enviada: {message}")
         connection.close()
     except Exception as e:
-        print(f"[RABBITMQ ✗] Falha ao enviar mensagem: {e}")
+        print(f"[!] Falha ao enviar erro para RabbitMQ: {e}")
