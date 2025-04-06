@@ -12,25 +12,21 @@ router = APIRouter()
 async def upload_video(file: UploadFile = File(...), user_email: str = Query(...)):
     db = SessionLocal()
 
-    # Gera nome único
     filename = f"{uuid.uuid4()}_{file.filename}"
     save_path = f"/tmp/uploads/{filename}"
     os.makedirs("/tmp/uploads", exist_ok=True)
 
-    # Salva arquivo
     with open(save_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Persiste no banco
     video = Video(filename=filename, user_email=user_email, status="processing")
     db.add(video)
     db.commit()
     db.close()
 
-    # Envia para RabbitMQ
     connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbitmq"))
     channel = connection.channel()
-    channel.queue_declare(queue="video_to_process")
+    channel.queue_declare(queue="video_to_process", durable=True)
 
     payload = {
         "filename": filename,
