@@ -36,7 +36,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest --disable-warnings --cov=app --cov-report=xml:coverage.xml
+          PYTHONPATH=. pytest --disable-warnings --cov=app --cov-report=xml:coverage.xml
 
       - name: Lint with flake8
         run: flake8 app --max-line-length=88
