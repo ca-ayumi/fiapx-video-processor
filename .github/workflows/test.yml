@@ -1,22 +1,24 @@
-name: Run Tests and Lint
+name: Test and Analyze
 
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:13
-        ports: ['5432:5432']
         env:
+          POSTGRES_DB: videodb
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password
-          POSTGRES_DB: videodb
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -29,26 +31,35 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.10
+          python-version: "3.10"
 
       - name: Install dependencies
+        working-directory: auth-service
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install -r auth-service/requirements.txt
-          pip install pytest pytest-cov httpx
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov httpx[http2] pytest-asyncio
 
-      - name: Run tests
+      - name: Run tests with coverage
+        working-directory: auth-service
         run: |
-          source .venv/bin/activate
-          PYTHONPATH=auth-service pytest auth-service/tests --cov=auth-service/app --cov-report=xml
+          pytest --disable-warnings --cov=app --cov-report=xml:coverage.xml
 
-      - name: Upload coverage to SonarCloud
+      - name: Lint code with flake8
+        working-directory: auth-service
+        run: |
+          pip install flake8
+          flake8 app --max-line-length=88
+
+      - name: Check formatting with black
+        working-directory: auth-service
+        run: |
+          pip install black
+          black --check app
+
+      - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         with:
-          args: >
-            -Dsonar.projectKey=SEU_USUARIO_PROJETO
-            -Dsonar.organization=SEU_ORG
-            -Dsonar.python.coverage.reportPaths=auth-service/coverage.xml
+          projectBaseDir: auth-service
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
