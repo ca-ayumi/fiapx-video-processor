@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        service: [video-upload-service, video-processing-service]
+        service: [video-upload-service, video-processing-service, status-service]
 
     defaults:
       run:
