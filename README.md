@@ -1,7 +1,7 @@
 # 🎬 FiapX Video Processor 
 
 ##  Arquitetura da Solução 
-![video_processor drawio](https://github.com/user-attachments/assets/768efcd6-ac83-4368-941c-d2fcdcab3ef1)
+![video_processor drawio (1)](https://github.com/user-attachments/assets/981f24c7-112a-46b5-86dc-29f090de2ea3)
 
 
 ## 📌 Visão Geral
